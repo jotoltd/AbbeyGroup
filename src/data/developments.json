@@ -1,0 +1,50 @@
+[
+  {
+    "slug": "wood-farm",
+    "name": "Wood Farm",
+    "location": "Edgefield, Norfolk",
+    "strapline": "Fifteen individually designed homes within 27 acres of North Norfolk countryside.",
+    "hero": "/images/project-1.jpeg",
+    "description": [
+      "Set within 27 acres of beautiful North Norfolk countryside, Wood Farm is an exclusive collection of fifteen individually designed homes, combining the character of traditional Norfolk barns with the comfort, efficiency and quality expected of modern luxury living.",
+      "The development comprises a carefully curated mix of extensively renovated barn conversions and newly created homes — every property finished to an exceptional standard with high-quality materials, energy-efficient construction, premium specifications and generous outdoor space.",
+      "Extensive landscaping, native tree planting and carefully considered design have transformed the former farmstead into a distinctive collection of homes that respect their rural setting while delivering modern standards of living."
+    ],
+    "facts": [
+      ["Location", "Edgefield, three miles from Holt"],
+      ["Collection", "15 individually designed homes"],
+      ["Guide price", "£545,000 – £1,095,000"],
+      ["Agent", "Savills"]
+    ],
+    "nearby": [
+      "Holt — 3 miles",
+      "Blakeney & Cley — ~15 mins",
+      "Wells-next-the-Sea — ~25 mins",
+      "Norwich — ~40 mins"
+    ],
+    "mapQuery": "Wood Farm, Plumstead Road, Edgefield, Norfolk NR24 2AQ"
+  },
+  {
+    "slug": "abbey-farm",
+    "name": "Abbey Farm",
+    "location": "Alby, Norfolk",
+    "strapline": "A collection of beautifully converted barns blending rustic character with modern comfort.",
+    "hero": "/images/story-barn-1.jpg",
+    "description": [
+      "Abbey Farm is a collection of thoughtfully converted barns and a substantial farmhouse in the village of Alby, in the heart of the North Norfolk countryside.",
+      "Each home offers spacious open-plan living, en-suite bedrooms and picturesque gardens — rustic character balanced with modern comfort in a tranquil rural setting."
+    ],
+    "facts": [
+      ["Location", "Alby, near Aylsham"],
+      ["Collection", "Barn conversions & farmhouse"],
+      ["Guide price", "£475,000 – £1,495,000"]
+    ],
+    "nearby": [
+      "Aylsham — ~10 mins",
+      "Holt — ~15 mins",
+      "Cromer & the coast — ~20 mins",
+      "Norwich — ~35 mins"
+    ],
+    "mapQuery": "Abbey Farm, Alby, Norfolk"
+  }
+]

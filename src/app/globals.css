@@ -1,26 +1,95 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-ink: #1e1e1e;
+  --color-espresso: #3c230f;
+  --color-cream: #ffffff;
+  --color-blush: #fae8db;
+  --color-sand: #eccdb2;
+  --color-copper: #da9b66;
+  --color-rust: #b46a2c;
+  --color-sage: #747d71;
+  --color-sage-dark: #5d665a;
+  --color-sage-light: #b5b9b3;
+  --color-mist: #d5d7d4;
+  --color-taupe: #8f8787;
+
+  --font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display), Georgia, serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-weight: 300;
+}
+
+::selection {
+  background: var(--color-sage);
+  color: #ffffff;
+}
+
+@keyframes kenburns {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.08);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+
+.animate-kenburns {
+  animation: kenburns 20s ease-out forwards;
+}
+
+.nav-link {
+  position: relative;
+}
+
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -4px;
+  height: 1px;
+  width: 100%;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 0.3s ease;
+}
+
+.nav-link:hover::after,
+.nav-link.active::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+@media print {
+  header,
+  footer,
+  .print\:hidden {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
 }
