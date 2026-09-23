@@ -11,6 +11,8 @@ const FILES: Record<DataKey, string> = {
   viewings: "viewings.json",
 };
 
+const BUCKET = "data";
+
 const filePath = (key: DataKey) =>
   path.join(process.cwd(), "src/data", FILES[key]);
 
@@ -40,39 +42,51 @@ async function writeFile(key: DataKey, value: unknown): Promise<void> {
 }
 
 /**
- * Read a data document. Uses Supabase when configured; otherwise (or when the
- * row/table is missing, e.g. setup.sql not yet run) falls back to the bundled
- * JSON files so the site keeps working.
+ * Read a data document. Uses the private `data` Supabase storage bucket when
+ * configured; otherwise (or when the object is missing) falls back to the
+ * bundled JSON files so the site keeps working.
  */
 export async function getDoc<T>(key: DataKey, fallback: T): Promise<T> {
   const sb = supabaseAdmin();
   if (sb) {
-    const { data, error } = await sb
-      .from("site_data")
-      .select("data")
-      .eq("key", key)
-      .maybeSingle();
-    if (!error && data) return data.data as T;
+    const { data, error } = await sb.storage
+      .from(BUCKET)
+      .download(`${key}.json`);
+    if (!error && data) {
+      try {
+        return JSON.parse(await data.text()) as T;
+      } catch {
+        // fall through to file fallback
+      }
+    }
   }
   return readFile(key, fallback);
 }
 
 /**
- * Persist a data document. Backs up the previous version first —
- * to site_data_backups in Supabase, or src/data/backups/ in file mode.
+ * Persist a data document. Backs up the previous version first — to
+ * backups/ inside the bucket in Supabase, or src/data/backups/ in file mode.
  */
 export async function setDoc(key: DataKey, value: unknown): Promise<void> {
   const sb = supabaseAdmin();
   if (!sb) return writeFile(key, value);
 
-  const { data: existing } = await sb
-    .from("site_data")
-    .select("data")
-    .eq("key", key)
-    .maybeSingle();
+  const { data: existing } = await sb.storage
+    .from(BUCKET)
+    .download(`${key}.json`);
   if (existing) {
-    await sb.from("site_data_backups").insert({ key, data: existing.data });
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    await sb.storage
+      .from(BUCKET)
+      .upload(`backups/${key}-${ts}.json`, existing, {
+        contentType: "application/json",
+      });
   }
-  const { error } = await sb.from("site_data").upsert({ key, data: value });
+  const { error } = await sb.storage
+    .from(BUCKET)
+    .upload(`${key}.json`, JSON.stringify(value, null, 2) + "\n", {
+      contentType: "application/json",
+      upsert: true,
+    });
   if (error) throw new Error(error.message);
 }

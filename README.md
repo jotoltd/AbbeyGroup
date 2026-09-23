@@ -16,23 +16,20 @@ Open http://localhost:3000. The admin area is at `/admin` (set
 
 ## Supabase (persistent store + image uploads)
 
-The site reads data from `src/data/*.json` by default. To make admin edits and
-uploads persist in production, point it at Supabase:
+Site data lives as JSON documents in a private `data` storage bucket, and
+admin image uploads go to a public `images` bucket — both already provisioned
+and seeded. Set these env vars (locally in `.env.local`, and on your host):
 
-1. Create a project at https://supabase.com
-2. Run `supabase/setup.sql` once in the project's SQL editor — it creates the
-   `site_data`/`site_data_backups` tables, a public `images` storage bucket,
-   and seeds the current site data.
-3. Set these env vars (locally in `.env.local`, and on your host):
+```
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=   # server only, bypasses storage RLS
+```
 
-   ```
-   NEXT_PUBLIC_SUPABASE_URL=
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=
-   SUPABASE_SERVICE_ROLE_KEY=   # server only, bypasses RLS
-   ```
-
-Without these vars everything falls back to the bundled JSON files, so the
-site always works — admin writes just won't persist on read-only hosts.
+Without these vars everything falls back to the bundled `src/data/*.json`
+files, so the site always works — admin writes just won't persist on
+read-only hosts. Each admin save also keeps a timestamped copy under
+`backups/` in the bucket (or `src/data/backups/` locally).
 
 Admin saves trigger `revalidatePath` so public pages update immediately;
 pages also revalidate every 5 minutes as a safety net.
