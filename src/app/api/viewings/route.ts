@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import { promises as fs } from "fs";
-import path from "path";
-
-const DATA_FILE = path.join(process.cwd(), "src/data/viewings.json");
+import { getDoc, setDoc } from "@/data/store";
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
@@ -25,11 +22,9 @@ export async function POST(req: Request) {
   };
 
   try {
-    const raw = await fs.readFile(DATA_FILE, "utf8").catch(() => "[]");
-    const list = JSON.parse(raw);
-    if (!Array.isArray(list)) throw new Error();
+    const list = await getDoc<unknown[]>("viewings", []);
     list.push(entry);
-    await fs.writeFile(DATA_FILE, JSON.stringify(list, null, 2) + "\n", "utf8");
+    await setDoc("viewings", list);
   } catch {
     return NextResponse.json({ error: "Could not save request" }, { status: 500 });
   }

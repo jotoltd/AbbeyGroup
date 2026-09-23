@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
-import { promises as fs } from "fs";
-import path from "path";
+import { revalidatePath } from "next/cache";
+import { getDoc, setDoc } from "@/data/store";
 import { authorised } from "../_auth";
 
-const DEV_FILE = path.join(process.cwd(), "src/data/developments.json");
-const PROP_FILE = path.join(process.cwd(), "src/data/properties.json");
-const BACKUP_DIR = path.join(process.cwd(), "src/data/backups");
+type Dev = { slug: string; name: string; location: string };
+type Prop = { development: string };
+
+const label = (d: { name: string; location: string }) =>
+  `${d.name}, ${d.location}`;
 
 export async function GET(req: Request) {
   if (!authorised(req))
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-  const raw = await fs.readFile(DEV_FILE, "utf8");
-  return NextResponse.json(JSON.parse(raw));
+  return NextResponse.json(await getDoc("developments", []));
 }
 
 export async function PUT(req: Request) {
@@ -41,16 +42,11 @@ export async function PUT(req: Request) {
     slugs.add(d.slug);
   }
 
-  const label = (d: { name: string; location: string }) =>
-    `${d.name}, ${d.location}`;
-
   try {
-    const oldRaw = await fs.readFile(DEV_FILE, "utf8").catch(() => null);
-    const propsRaw = await fs.readFile(PROP_FILE, "utf8").catch(() => "[]");
-    const oldDevs = oldRaw ? JSON.parse(oldRaw) : [];
-    const props = JSON.parse(propsRaw);
+    const oldDevs = await getDoc<Dev[]>("developments", []);
+    const props = await getDoc<Prop[]>("properties", []);
     const usedBy = (l: string) =>
-      props.filter((p: { development: string }) => p.development === l).length;
+      props.filter((p) => p.development === l).length;
 
     // Block deleting a development that still has listings
     for (const old of oldDevs) {
@@ -69,9 +65,7 @@ export async function PUT(req: Request) {
     // If a development's name/location changed, re-point its listings
     let propsChanged = false;
     for (const d of body) {
-      const old = oldDevs.find(
-        (o: { slug: string }) => o.slug === d.slug,
-      );
+      const old = oldDevs.find((o) => o.slug === d.slug);
       if (old && label(old) !== label(d)) {
         for (const p of props) {
           if (p.development === label(old)) {
@@ -82,29 +76,12 @@ export async function PUT(req: Request) {
       }
     }
 
-    await fs.mkdir(BACKUP_DIR, { recursive: true });
-    const ts = new Date().toISOString().replace(/[:.]/g, "-");
-    if (oldRaw)
-      await fs.writeFile(
-        path.join(BACKUP_DIR, `developments-${ts}.json`),
-        oldRaw,
-      );
-    if (propsChanged)
-      await fs.writeFile(
-        path.join(BACKUP_DIR, `properties-${ts}.json`),
-        propsRaw,
-      );
-
-    await fs.writeFile(DEV_FILE, JSON.stringify(body, null, 2) + "\n", "utf8");
-    if (propsChanged)
-      await fs.writeFile(
-        PROP_FILE,
-        JSON.stringify(props, null, 2) + "\n",
-        "utf8",
-      );
+    await setDoc("developments", body);
+    if (propsChanged) await setDoc("properties", props);
+    revalidatePath("/", "layout");
   } catch {
     return NextResponse.json(
-      { error: "Could not write data files — host may be read-only." },
+      { error: "Could not save developments — check Supabase configuration." },
       { status: 500 },
     );
   }

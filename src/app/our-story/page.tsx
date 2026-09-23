@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import Reveal from "@/components/Reveal";
-import { content } from "@/data/content";
+import { getContent } from "@/data/server";
 
 export const metadata: Metadata = {
   title: "Our Story",
@@ -31,7 +31,8 @@ const process = [
   },
 ];
 
-export default function OurStory() {
+export default async function OurStory() {
+  const content = await getContent();
   return (
     <>
       <section className="mx-auto max-w-7xl px-6 pb-20 pt-40 lg:px-10 lg:pt-52">

@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
-import { promises as fs } from "fs";
-import path from "path";
+import { revalidatePath } from "next/cache";
+import { getDoc, setDoc } from "@/data/store";
 import { authorised } from "../_auth";
-
-const DATA_FILE = path.join(process.cwd(), "src/data/properties.json");
-const BACKUP_DIR = path.join(process.cwd(), "src/data/backups");
 
 export async function GET(req: Request) {
   if (!authorised(req))
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-  const raw = await fs.readFile(DATA_FILE, "utf8");
-  return NextResponse.json(JSON.parse(raw));
+  return NextResponse.json(await getDoc("properties", []));
 }
 
 export async function PUT(req: Request) {
@@ -41,22 +37,11 @@ export async function PUT(req: Request) {
   }
 
   try {
-    await fs.mkdir(BACKUP_DIR, { recursive: true });
-    const existing = await fs.readFile(DATA_FILE, "utf8").catch(() => null);
-    if (existing) {
-      const ts = new Date().toISOString().replace(/[:.]/g, "-");
-      await fs.writeFile(
-        path.join(BACKUP_DIR, `properties-${ts}.json`),
-        existing,
-      );
-    }
-    await fs.writeFile(DATA_FILE, JSON.stringify(body, null, 2) + "\n", "utf8");
+    await setDoc("properties", body);
+    revalidatePath("/", "layout");
   } catch {
     return NextResponse.json(
-      {
-        error:
-          "Could not write data file — this host may be read-only (e.g. serverless).",
-      },
+      { error: "Could not save properties — check Supabase configuration." },
       { status: 500 },
     );
   }

@@ -3,18 +3,18 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Reveal from "@/components/Reveal";
-import { developments } from "@/data/developments";
-import { formatPrice, properties } from "@/data/properties";
+import { formatPrice } from "@/data/properties";
+import { getDevelopments, getProperties } from "@/data/server";
 
-export function generateStaticParams() {
-  return developments.map((d) => ({ slug: d.slug }));
+export async function generateStaticParams() {
+  return (await getDevelopments()).map((d) => ({ slug: d.slug }));
 }
 
 export async function generateMetadata({
   params,
 }: PageProps<"/developments/[slug]">): Promise<Metadata> {
   const { slug } = await params;
-  const d = developments.find((x) => x.slug === slug);
+  const d = (await getDevelopments()).find((x) => x.slug === slug);
   if (!d) return {};
   return { title: `${d.name}, ${d.location}`, description: d.strapline };
 }
@@ -23,10 +23,10 @@ export default async function DevelopmentPage({
   params,
 }: PageProps<"/developments/[slug]">) {
   const { slug } = await params;
-  const d = developments.find((x) => x.slug === slug);
+  const d = (await getDevelopments()).find((x) => x.slug === slug);
   if (!d) notFound();
 
-  const homes = properties.filter(
+  const homes = (await getProperties()).filter(
     (p) =>
       p.status !== "Draft" &&
       p.development.toLowerCase().startsWith(d.name.toLowerCase()),

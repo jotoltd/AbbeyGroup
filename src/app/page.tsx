@@ -2,9 +2,10 @@ import Image from "next/image";
 import Link from "next/link";
 import Reveal from "@/components/Reveal";
 import RotatingWord from "@/components/RotatingWord";
-import { content } from "@/data/content";
+import { getContent } from "@/data/server";
 
-export default function Home() {
+export default async function Home() {
+  const content = await getContent();
   return (
     <>
       {/* Hero */}

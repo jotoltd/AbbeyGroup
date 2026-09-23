@@ -1,10 +1,15 @@
 import type { MetadataRoute } from "next";
-import { properties } from "@/data/properties";
-import { developments } from "@/data/developments";
+import { getDevelopments, getProperties } from "@/data/server";
 
 const BASE = "https://www.theabbeygroupnorfolk.com";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export const revalidate = 3600;
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const [developments, properties] = await Promise.all([
+    getDevelopments(),
+    getProperties(),
+  ]);
   return [
     "",
     "/our-story",

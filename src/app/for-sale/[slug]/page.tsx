@@ -2,12 +2,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { formatPrice, properties } from "@/data/properties";
+import { formatPrice } from "@/data/properties";
+import { getProperties } from "@/data/server";
 import Gallery from "@/components/Lightbox";
 import ViewingRequest from "@/components/ViewingRequest";
 
-export function generateStaticParams() {
-  return properties
+export async function generateStaticParams() {
+  return (await getProperties())
     .filter((p) => p.status !== "Draft")
     .map((p) => ({ slug: p.slug }));
 }
@@ -16,7 +17,7 @@ export async function generateMetadata({
   params,
 }: PageProps<"/for-sale/[slug]">): Promise<Metadata> {
   const { slug } = await params;
-  const p = properties.find((x) => x.slug === slug);
+  const p = (await getProperties()).find((x) => x.slug === slug);
   if (!p) return {};
   return {
     title: `${p.name} — ${formatPrice(p.price)}`,
@@ -35,7 +36,7 @@ export default async function PropertyPage({
   params,
 }: PageProps<"/for-sale/[slug]">) {
   const { slug } = await params;
-  const p = properties.find((x) => x.slug === slug);
+  const p = (await getProperties()).find((x) => x.slug === slug);
   if (!p || p.status === "Draft") notFound();
 
   return (

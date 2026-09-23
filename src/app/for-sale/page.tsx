@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import PropertyGrid from "@/components/PropertyGrid";
 import Reveal from "@/components/Reveal";
-import { properties } from "@/data/properties";
+import { getProperties } from "@/data/server";
 
 export const metadata: Metadata = {
   title: "For Sale",
@@ -9,7 +9,8 @@ export const metadata: Metadata = {
     "Luxury barn conversions and homes for sale in Norfolk — Wood Farm, Edgefield and Abbey Farm, Alby.",
 };
 
-export default function ForSale() {
+export default async function ForSale() {
+  const properties = await getProperties();
   return (
     <section className="mx-auto max-w-7xl px-6 pb-24 pt-40 lg:px-10 lg:pt-52">
       <Reveal>

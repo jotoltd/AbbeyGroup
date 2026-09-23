@@ -17,6 +17,10 @@ const display = Cormorant_Garamond({
   style: ["normal", "italic"],
 });
 
+// Revalidate prerendered pages periodically as a safety net; admin saves
+// also call revalidatePath for instant updates.
+export const revalidate = 300;
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.theabbeygroupnorfolk.com"),
   title: {
