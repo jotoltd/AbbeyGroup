@@ -2,13 +2,19 @@ import { promises as fs } from "fs";
 import path from "path";
 import { supabaseAdmin } from "@/lib/supabase";
 
-export type DataKey = "properties" | "developments" | "content" | "viewings";
+export type DataKey =
+  | "properties"
+  | "developments"
+  | "content"
+  | "viewings"
+  | "users";
 
 const FILES: Record<DataKey, string> = {
   properties: "properties.json",
   developments: "developments.json",
   content: "content.json",
   viewings: "viewings.json",
+  users: "users.json",
 };
 
 const BUCKET = "data";

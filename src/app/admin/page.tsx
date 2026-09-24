@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Property = {
   slug: string;
@@ -67,17 +67,24 @@ const slugify = (s: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
+type AdminUser = { id: string; username: string; createdAt: string };
+
 export default function Admin() {
-  const [password, setPassword] = useState(
+  const [token, setToken] = useState(
     () =>
       (typeof window !== "undefined" &&
         sessionStorage.getItem("abbey-admin")) ||
       "",
   );
+  const [username, setUsername] = useState("");
+  const [loginPass, setLoginPass] = useState("");
   const [authed, setAuthed] = useState(false);
   const [tab, setTab] = useState<
-    "listings" | "developments" | "content" | "viewings"
+    "listings" | "developments" | "content" | "viewings" | "users"
   >("listings");
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
 
   const [items, setItems] = useState<Property[]>([]);
   const [savedItems, setSavedItems] = useState<Property[]>([]);
@@ -104,7 +111,7 @@ export default function Admin() {
   const [dragOver, setDragOver] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const headers = { Authorization: `Bearer ${password}` };
+  const headers = { Authorization: `Bearer ${token}` };
   const dirty =
     JSON.stringify(items) !== JSON.stringify(savedItems) ||
     JSON.stringify(devs) !== JSON.stringify(savedDevs) ||
@@ -134,17 +141,36 @@ export default function Admin() {
     items.filter((p) => p.development === `${dev.name}, ${dev.location}`)
       .length;
 
+  async function login() {
+    const res = await fetch("/api/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password: loginPass }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setMsg(data.error || "Sign in failed");
+      return;
+    }
+    setToken(data.token);
+    setLoginPass("");
+    await load(data.token);
+  }
+
   async function load(pw: string) {
     const h = { Authorization: `Bearer ${pw}` };
-    const [pRes, dRes, cRes, iRes, vRes] = await Promise.all([
+    const [pRes, dRes, cRes, iRes, vRes, uRes] = await Promise.all([
       fetch("/api/admin/properties", { headers: h }),
       fetch("/api/admin/developments", { headers: h }),
       fetch("/api/admin/content", { headers: h }),
       fetch("/api/admin/images", { headers: h }),
       fetch("/api/admin/viewings", { headers: h }),
+      fetch("/api/admin/users", { headers: h }),
     ]);
     if (!pRes.ok) {
-      setMsg("Incorrect password");
+      setMsg("Session expired — sign in again");
+      sessionStorage.removeItem("abbey-admin");
+      setToken("");
       return;
     }
     const pData = await pRes.json();
@@ -162,9 +188,46 @@ export default function Admin() {
     }
     if (iRes.ok) setImages(await iRes.json());
     if (vRes.ok) setViewings(await vRes.json());
+    if (uRes.ok) setUsers(await uRes.json());
     setAuthed(true);
     sessionStorage.setItem("abbey-admin", pw);
     setMsg("");
+  }
+
+  useEffect(() => {
+    const t = sessionStorage.getItem("abbey-admin");
+    if (t) void load(t);
+  }, []);
+
+  async function addUser() {
+    const res = await fetch("/api/admin/users", {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ username: newUsername, password: newPassword }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setMsg(data.error || "Could not save user");
+      return;
+    }
+    const list = await fetch("/api/admin/users", { headers });
+    if (list.ok) setUsers(await list.json());
+    setMsg(`User "${newUsername}" saved.`);
+    setNewUsername("");
+    setNewPassword("");
+  }
+
+  async function removeUser(name: string) {
+    const res = await fetch(
+      `/api/admin/users?username=${encodeURIComponent(name)}`,
+      { method: "DELETE", headers },
+    );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setMsg(data.error || "Could not remove user");
+      return;
+    }
+    setUsers(users.filter((u) => u.username !== name));
   }
 
   function validate(): string | null {
@@ -360,15 +423,23 @@ export default function Admin() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            load(password);
+            login();
           }}
           className="space-y-4"
         >
           <input
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Username"
+            autoComplete="username"
+            className={input}
+          />
+          <input
             type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Admin password"
+            value={loginPass}
+            onChange={(e) => setLoginPass(e.target.value)}
+            placeholder="Password"
+            autoComplete="current-password"
             className={input}
           />
           <button className="w-full bg-sage px-6 py-3.5 text-xs uppercase tracking-[0.2em] text-white hover:bg-sage-dark">
@@ -412,7 +483,7 @@ export default function Admin() {
             onClick={() => {
               sessionStorage.removeItem("abbey-admin");
               setAuthed(false);
-              setPassword("");
+              setToken("");
             }}
             className="text-xs uppercase tracking-[0.18em] text-ink/50 underline hover:text-ink"
           >
@@ -432,6 +503,7 @@ export default function Admin() {
               "viewings",
               `Viewings${viewings.length ? ` (${viewings.length})` : ""}`,
             ],
+            ["users", "Users"],
           ] as const
         ).map(([key, labelText]) => (
           <button
@@ -1156,6 +1228,75 @@ export default function Admin() {
               </section>
             ))
           )}
+        </div>
+      )}
+
+      {tab === "users" && (
+        <div className="max-w-xl">
+          <h2 className="mb-4 text-xs font-normal uppercase tracking-[0.25em] text-ink/50">
+            Admin users
+          </h2>
+          {users.length === 0 ? (
+            <p className="text-sm text-ink/50">No users yet.</p>
+          ) : (
+            <ul className="mb-8 divide-y divide-mist border-y border-mist">
+              {users.map((u) => (
+                <li
+                  key={u.id}
+                  className="flex items-center justify-between gap-4 px-3 py-4"
+                >
+                  <div>
+                    <p className="text-sm font-medium">{u.username}</p>
+                    <p className="mt-0.5 text-[11px] text-ink/45">
+                      Added{" "}
+                      {new Date(u.createdAt).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => removeUser(u.username)}
+                    className="text-[11px] uppercase tracking-[0.15em] text-ink/50 underline hover:text-rust"
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <h3 className="mb-3 text-xs font-normal uppercase tracking-[0.25em] text-ink/50">
+            Add or reset a user
+          </h3>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              addUser();
+            }}
+            className="space-y-3"
+          >
+            <input
+              value={newUsername}
+              onChange={(e) => setNewUsername(e.target.value)}
+              placeholder="Username"
+              autoComplete="off"
+              className={input}
+            />
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Password (min 8 characters)"
+              autoComplete="new-password"
+              className={input}
+            />
+            <button className="bg-sage px-5 py-2.5 text-xs uppercase tracking-[0.18em] text-white hover:bg-sage-dark">
+              Save user
+            </button>
+          </form>
+          {msg && <p className="mt-4 text-sm text-rust">{msg}</p>}
         </div>
       )}
 
