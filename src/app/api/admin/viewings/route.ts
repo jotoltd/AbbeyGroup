@@ -5,14 +5,14 @@ import { authorised } from "../_auth";
 type Viewing = { id: string };
 
 export async function GET(req: Request) {
-  if (!authorised(req))
+  if (!(await authorised(req)))
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   const list = await getDoc<Viewing[]>("viewings", []);
   return NextResponse.json(list.slice().reverse());
 }
 
 export async function DELETE(req: Request) {
-  if (!authorised(req))
+  if (!(await authorised(req)))
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
   const id = new URL(req.url).searchParams.get("id");

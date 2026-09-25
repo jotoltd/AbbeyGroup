@@ -10,13 +10,13 @@ const label = (d: { name: string; location: string }) =>
   `${d.name}, ${d.location}`;
 
 export async function GET(req: Request) {
-  if (!authorised(req))
+  if (!(await authorised(req)))
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   return NextResponse.json(await getDoc("developments", []));
 }
 
 export async function PUT(req: Request) {
-  if (!authorised(req))
+  if (!(await authorised(req)))
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
   const body = await req.json();

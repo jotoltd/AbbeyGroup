@@ -78,6 +78,13 @@ export default function Admin() {
   );
   const [username, setUsername] = useState("");
   const [loginPass, setLoginPass] = useState("");
+  const [signingIn, setSigningIn] = useState(false);
+  const [me, setMe] = useState(
+    () =>
+      (typeof window !== "undefined" &&
+        sessionStorage.getItem("abbey-admin-user")) ||
+      "",
+  );
   const [authed, setAuthed] = useState(false);
   const [tab, setTab] = useState<
     "listings" | "developments" | "content" | "viewings" | "users"
@@ -142,34 +149,50 @@ export default function Admin() {
       .length;
 
   async function login() {
-    const res = await fetch("/api/admin/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password: loginPass }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setMsg(data.error || "Sign in failed");
-      return;
+    setSigningIn(true);
+    setMsg("");
+    try {
+      const res = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password: loginPass }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMsg(data.error || "Sign in failed");
+        return;
+      }
+      setToken(data.token);
+      setMe(data.username || "");
+      sessionStorage.setItem("abbey-admin-user", data.username || "");
+      setLoginPass("");
+      await load(data.token);
+    } catch {
+      setMsg("Could not reach the server — check your connection.");
+    } finally {
+      setSigningIn(false);
     }
-    setToken(data.token);
-    setLoginPass("");
-    await load(data.token);
   }
 
   async function load(pw: string) {
     const h = { Authorization: `Bearer ${pw}` };
-    const [pRes, dRes, cRes, iRes, vRes, uRes] = await Promise.all([
+    const responses = await Promise.all([
       fetch("/api/admin/properties", { headers: h }),
       fetch("/api/admin/developments", { headers: h }),
       fetch("/api/admin/content", { headers: h }),
       fetch("/api/admin/images", { headers: h }),
       fetch("/api/admin/viewings", { headers: h }),
       fetch("/api/admin/users", { headers: h }),
-    ]);
+    ]).catch(() => null);
+    if (!responses) {
+      setMsg("Could not reach the server — try again.");
+      return;
+    }
+    const [pRes, dRes, cRes, iRes, vRes, uRes] = responses;
     if (!pRes.ok) {
       setMsg("Session expired — sign in again");
       sessionStorage.removeItem("abbey-admin");
+      sessionStorage.removeItem("abbey-admin-user");
       setToken("");
       return;
     }
@@ -200,34 +223,42 @@ export default function Admin() {
   }, []);
 
   async function addUser() {
-    const res = await fetch("/api/admin/users", {
-      method: "POST",
-      headers: { ...headers, "Content-Type": "application/json" },
-      body: JSON.stringify({ username: newUsername, password: newPassword }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setMsg(data.error || "Could not save user");
-      return;
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ username: newUsername, password: newPassword }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMsg(data.error || "Could not save user");
+        return;
+      }
+      const list = await fetch("/api/admin/users", { headers });
+      if (list.ok) setUsers(await list.json());
+      setMsg(`User "${newUsername}" saved.`);
+      setNewUsername("");
+      setNewPassword("");
+    } catch {
+      setMsg("Could not reach the server — user not saved.");
     }
-    const list = await fetch("/api/admin/users", { headers });
-    if (list.ok) setUsers(await list.json());
-    setMsg(`User "${newUsername}" saved.`);
-    setNewUsername("");
-    setNewPassword("");
   }
 
   async function removeUser(name: string) {
-    const res = await fetch(
-      `/api/admin/users?username=${encodeURIComponent(name)}`,
-      { method: "DELETE", headers },
-    );
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setMsg(data.error || "Could not remove user");
-      return;
+    try {
+      const res = await fetch(
+        `/api/admin/users?username=${encodeURIComponent(name)}`,
+        { method: "DELETE", headers },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMsg(data.error || "Could not remove user");
+        return;
+      }
+      setUsers(users.filter((u) => u.username !== name));
+    } catch {
+      setMsg("Could not reach the server — user not removed.");
     }
-    setUsers(users.filter((u) => u.username !== name));
   }
 
   function validate(): string | null {
@@ -286,6 +317,8 @@ export default function Admin() {
         const { error } = await failed.json().catch(() => ({}));
         setMsg(error || "Save failed (read-only host?)");
       }
+    } catch {
+      setMsg("Save failed — could not reach the server.");
     } finally {
       setSaving(false);
     }
@@ -333,7 +366,7 @@ export default function Admin() {
     };
     setItems([p, ...items]);
     setSelected(p);
-    setSlugTouched(true);
+    setSlugTouched(false);
   }
 
   function removeProperty(slug: string) {
@@ -356,7 +389,7 @@ export default function Admin() {
     };
     setDevs([d, ...devs]);
     setSelectedDev(d);
-    setSlugTouched(true);
+    setSlugTouched(false);
   }
 
   function removeDevelopment(slug: string) {
@@ -373,12 +406,16 @@ export default function Admin() {
   }
 
   async function removeViewing(id: string) {
-    const res = await fetch(
-      `/api/admin/viewings?id=${encodeURIComponent(id)}`,
-      { method: "DELETE", headers },
-    );
-    if (res.ok) setViewings(viewings.filter((v) => v.id !== id));
-    else setMsg("Could not remove viewing request");
+    try {
+      const res = await fetch(
+        `/api/admin/viewings?id=${encodeURIComponent(id)}`,
+        { method: "DELETE", headers },
+      );
+      if (res.ok) setViewings(viewings.filter((v) => v.id !== id));
+      else setMsg("Could not remove viewing request");
+    } catch {
+      setMsg("Could not reach the server — request not removed.");
+    }
   }
 
   async function upload(file: File) {
@@ -391,7 +428,7 @@ export default function Admin() {
         headers,
         body: fd,
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setMsg(data.error || "Upload failed");
         return;
@@ -402,6 +439,8 @@ export default function Admin() {
         update("gallery", [...(selected?.gallery ?? []), data.path]);
       if (picker === "dev-hero") updateDev("hero", data.path);
       setPicker(null);
+    } catch {
+      setMsg("Upload failed — could not reach the server.");
     } finally {
       setUploading(false);
       setDragOver(false);
@@ -442,8 +481,11 @@ export default function Admin() {
             autoComplete="current-password"
             className={input}
           />
-          <button className="w-full bg-sage px-6 py-3.5 text-xs uppercase tracking-[0.2em] text-white hover:bg-sage-dark">
-            Sign in
+          <button
+            disabled={signingIn}
+            className="w-full bg-sage px-6 py-3.5 text-xs uppercase tracking-[0.2em] text-white hover:bg-sage-dark disabled:opacity-50"
+          >
+            {signingIn ? "Signing in…" : "Sign in"}
           </button>
           {msg && <p className="text-sm text-rust">{msg}</p>}
         </form>
@@ -482,12 +524,14 @@ export default function Admin() {
           <button
             onClick={() => {
               sessionStorage.removeItem("abbey-admin");
+              sessionStorage.removeItem("abbey-admin-user");
               setAuthed(false);
               setToken("");
+              setMe("");
             }}
             className="text-xs uppercase tracking-[0.18em] text-ink/50 underline hover:text-ink"
           >
-            Sign out
+            Sign out{me ? ` (${me})` : ""}
           </button>
         </div>
       </div>
@@ -776,13 +820,22 @@ export default function Admin() {
                   />
                 </div>
                 <div className="flex items-center justify-between sm:col-span-2">
-                  <a
-                    href={`/for-sale/${selected.slug}`}
-                    target="_blank"
-                    className="text-xs uppercase tracking-[0.18em] text-sage-dark underline"
-                  >
-                    Preview listing →
-                  </a>
+                  {selected.status !== "Draft" &&
+                  savedItems.some((p) => p.slug === selected.slug) ? (
+                    <a
+                      href={`/for-sale/${selected.slug}`}
+                      target="_blank"
+                      className="text-xs uppercase tracking-[0.18em] text-sage-dark underline"
+                    >
+                      Preview listing →
+                    </a>
+                  ) : (
+                    <span className="text-xs uppercase tracking-[0.18em] text-ink/40">
+                      {selected.status === "Draft"
+                        ? "Draft — not live on the site"
+                        : "Save changes to preview"}
+                    </span>
+                  )}
                   {confirmDelete ? (
                     <span className="flex items-center gap-3 text-xs">
                       Sure?
@@ -1025,13 +1078,19 @@ export default function Admin() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <a
-                    href={`/developments/${selectedDev.slug}`}
-                    target="_blank"
-                    className="text-xs uppercase tracking-[0.18em] text-sage-dark underline"
-                  >
-                    Preview page →
-                  </a>
+                  {savedDevs.some((d) => d.slug === selectedDev.slug) ? (
+                    <a
+                      href={`/developments/${selectedDev.slug}`}
+                      target="_blank"
+                      className="text-xs uppercase tracking-[0.18em] text-sage-dark underline"
+                    >
+                      Preview page →
+                    </a>
+                  ) : (
+                    <span className="text-xs uppercase tracking-[0.18em] text-ink/40">
+                      Save changes to preview
+                    </span>
+                  )}
                   {confirmDelete ? (
                     <span className="flex items-center gap-3 text-xs">
                       Sure?
@@ -1065,6 +1124,12 @@ export default function Admin() {
             )}
           </div>
         </>
+      )}
+
+      {tab === "content" && !siteContent && (
+        <p className="text-sm text-ink/50">
+          Site content could not be loaded — sign out and back in to retry.
+        </p>
       )}
 
       {tab === "content" && siteContent && (
@@ -1246,7 +1311,14 @@ export default function Admin() {
                   className="flex items-center justify-between gap-4 px-3 py-4"
                 >
                   <div>
-                    <p className="text-sm font-medium">{u.username}</p>
+                    <p className="text-sm font-medium">
+                      {u.username}
+                      {u.username === me && (
+                        <span className="ml-2 text-[11px] uppercase tracking-[0.15em] text-sage-dark">
+                          you
+                        </span>
+                      )}
+                    </p>
                     <p className="mt-0.5 text-[11px] text-ink/45">
                       Added{" "}
                       {new Date(u.createdAt).toLocaleDateString("en-GB", {
@@ -1256,12 +1328,14 @@ export default function Admin() {
                       })}
                     </p>
                   </div>
-                  <button
-                    onClick={() => removeUser(u.username)}
-                    className="text-[11px] uppercase tracking-[0.15em] text-ink/50 underline hover:text-rust"
-                  >
-                    Remove
-                  </button>
+                  {u.username !== me && (
+                    <button
+                      onClick={() => removeUser(u.username)}
+                      className="text-[11px] uppercase tracking-[0.15em] text-ink/50 underline hover:text-rust"
+                    >
+                      Remove
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>

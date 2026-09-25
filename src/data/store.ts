@@ -1,4 +1,5 @@
 import { promises as fs } from "fs";
+import https from "https";
 import path from "path";
 import { supabaseAdmin } from "@/lib/supabase";
 
@@ -48,22 +49,52 @@ async function writeFile(key: DataKey, value: unknown): Promise<void> {
 }
 
 /**
+ * GET a URL via the https module instead of fetch(). Next.js patches global
+ * fetch with its Data Cache, which can serve a stale copy of a storage
+ * object after an overwrite — breaking read-after-write (e.g. signing in
+ * right after a user is created) and corrupting read-modify-write saves.
+ * https.request is untouched by Next and always hits the network.
+ */
+function httpsGet(url: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    https
+      .get(url, (res) => {
+        if (res.statusCode !== 200) {
+          res.resume();
+          return resolve(null);
+        }
+        let body = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => (body += chunk));
+        res.on("end", () => resolve(body));
+      })
+      .on("error", () => resolve(null));
+  });
+}
+
+/** Fresh read of a document straight from the bucket via a signed URL. */
+async function downloadFresh(key: DataKey): Promise<string | null> {
+  const sb = supabaseAdmin();
+  if (!sb) return null;
+  const { data } = await sb.storage
+    .from(BUCKET)
+    .createSignedUrl(`${key}.json`, 60);
+  if (!data?.signedUrl) return null;
+  return httpsGet(data.signedUrl);
+}
+
+/**
  * Read a data document. Uses the private `data` Supabase storage bucket when
  * configured; otherwise (or when the object is missing) falls back to the
  * bundled JSON files so the site keeps working.
  */
 export async function getDoc<T>(key: DataKey, fallback: T): Promise<T> {
-  const sb = supabaseAdmin();
-  if (sb) {
-    const { data, error } = await sb.storage
-      .from(BUCKET)
-      .download(`${key}.json`);
-    if (!error && data) {
-      try {
-        return JSON.parse(await data.text()) as T;
-      } catch {
-        // fall through to file fallback
-      }
+  const text = await downloadFresh(key);
+  if (text !== null) {
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      // fall through to file fallback
     }
   }
   return readFile(key, fallback);
@@ -77,10 +108,8 @@ export async function setDoc(key: DataKey, value: unknown): Promise<void> {
   const sb = supabaseAdmin();
   if (!sb) return writeFile(key, value);
 
-  const { data: existing } = await sb.storage
-    .from(BUCKET)
-    .download(`${key}.json`);
-  if (existing) {
+  const existing = await downloadFresh(key);
+  if (existing !== null) {
     const ts = new Date().toISOString().replace(/[:.]/g, "-");
     await sb.storage
       .from(BUCKET)
@@ -88,10 +117,13 @@ export async function setDoc(key: DataKey, value: unknown): Promise<void> {
         contentType: "application/json",
       });
   }
+  // cacheControl 0 on the object metadata as a second line of defence against
+  // CDN-cached copies being served to anything that still uses download().
   const { error } = await sb.storage
     .from(BUCKET)
     .upload(`${key}.json`, JSON.stringify(value, null, 2) + "\n", {
       contentType: "application/json",
+      cacheControl: "0",
       upsert: true,
     });
   if (error) throw new Error(error.message);

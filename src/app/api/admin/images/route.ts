@@ -45,7 +45,7 @@ async function scanBucket(prefix: string): Promise<string[]> {
 }
 
 export async function GET(req: Request) {
-  if (!authorised(req))
+  if (!(await authorised(req)))
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   const [local, remote] = await Promise.all([
     scan(IMG_DIR, "/images/"),

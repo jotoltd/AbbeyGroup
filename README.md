@@ -11,8 +11,19 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000. The admin area is at `/admin` (set
-`ADMIN_PASSWORD` in `.env.local` to enable it outside local development).
+Open http://localhost:3000. The admin area is at `/admin`.
+
+## Admin sign-in
+
+Admin accounts are managed in the **Users** tab of `/admin` and stored
+scrypt-hashed in the data store. Sign-in issues a 7-day session token signed
+with `AUTH_SECRET` (or `SUPABASE_SERVICE_ROLE_KEY` when unset). Removing a
+user revokes their access immediately.
+
+`ADMIN_PASSWORD` is a recovery credential: sign in with any username plus that
+password to regain access and create a fresh account. Locally, with neither
+users nor `ADMIN_PASSWORD` configured, any credentials will sign you in so you
+can create the first account.
 
 ## Supabase (persistent store + image uploads)
 

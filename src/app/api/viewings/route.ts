@@ -29,5 +29,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Could not save request" }, { status: 500 });
   }
 
+  // Best-effort email notification — the request is already saved, so a
+  // delivery failure must not fail the submission.
+  const apiKey = process.env.RESEND_API_KEY;
+  const to = process.env.CONTACT_TO;
+  const from = process.env.CONTACT_FROM;
+  if (apiKey && to && from) {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to,
+        reply_to: entry.email,
+        subject: `Viewing request — ${entry.property}`,
+        text: `Property: ${entry.property}\nName: ${entry.name}\nEmail: ${entry.email}\nPhone: ${entry.phone || "—"}\nPreferred date: ${entry.date || "—"}\n\n${entry.message}`,
+      }),
+    }).catch(() => {});
+  }
+
   return NextResponse.json({ ok: true });
 }

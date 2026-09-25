@@ -9,7 +9,7 @@ const ALLOWED = new Set(["jpg", "jpeg", "png", "webp", "avif", "gif"]);
 const BUCKET = "images";
 
 export async function POST(req: Request) {
-  if (!authorised(req))
+  if (!(await authorised(req)))
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
   const form = await req.formData();
