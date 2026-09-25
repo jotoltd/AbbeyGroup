@@ -6,6 +6,8 @@ import {
 } from "./developments";
 import { content as fallbackContent, type SiteContent } from "./content";
 
+export type ViewingStatus = "new" | "contacted" | "booked" | "done";
+
 export type Viewing = {
   id: string;
   slug: string;
@@ -16,6 +18,22 @@ export type Viewing = {
   date: string;
   message: string;
   createdAt: string;
+  status?: ViewingStatus;
+  note?: string;
+};
+
+export type EnquiryStatus = "new" | "in-progress" | "done";
+
+export type Enquiry = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  subject: string;
+  message: string;
+  createdAt: string;
+  status?: EnquiryStatus;
+  note?: string;
 };
 
 export const getProperties = () =>
@@ -27,3 +45,5 @@ export const getDevelopments = () =>
 export const getContent = () => getDoc<SiteContent>("content", fallbackContent);
 
 export const getViewings = () => getDoc<Viewing[]>("viewings", []);
+
+export const getEnquiries = () => getDoc<Enquiry[]>("enquiries", []);

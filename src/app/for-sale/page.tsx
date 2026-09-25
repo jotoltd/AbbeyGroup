@@ -29,7 +29,9 @@ export default async function ForSale() {
 
       <div className="mt-16">
         <PropertyGrid
-          properties={properties.filter((p) => p.status !== "Draft")}
+          properties={properties
+            .filter((p) => p.status !== "Draft")
+            .sort((a, b) => Number(b.featured) - Number(a.featured))}
         />
       </div>
     </section>

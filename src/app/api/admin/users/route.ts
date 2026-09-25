@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDoc, setDoc } from "@/data/store";
+import { getDoc, setDoc, audit } from "@/data/store";
 import { newUser, type UserRec } from "@/lib/auth";
 import { authorised, caller } from "../_auth";
 
@@ -37,6 +37,7 @@ export async function POST(req: Request) {
     );
     next.push(newUser(username, password));
     await setDoc("users", next);
+    await audit(caller(req) ?? "admin", "save user", username);
   } catch {
     return NextResponse.json(
       { error: "Could not save user — check Supabase configuration." },
@@ -75,6 +76,7 @@ export async function DELETE(req: Request) {
         { status: 400 },
       );
     await setDoc("users", next);
+    await audit(caller(req) ?? "admin", "delete user", username);
   } catch {
     return NextResponse.json({ error: "Could not update" }, { status: 500 });
   }

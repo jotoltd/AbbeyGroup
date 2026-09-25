@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getDoc, setDoc } from "@/data/store";
-import { authorised } from "../_auth";
+import { getDoc, setDoc, audit } from "@/data/store";
+import { authorised, caller } from "../_auth";
 
 export async function GET(req: Request) {
   if (!(await authorised(req)))
@@ -38,6 +38,7 @@ export async function PUT(req: Request) {
 
   try {
     await setDoc("properties", body);
+    await audit(caller(req) ?? "admin", "save listings", `${body.length} items`);
     revalidatePath("/", "layout");
   } catch {
     return NextResponse.json(

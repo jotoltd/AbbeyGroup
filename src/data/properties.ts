@@ -10,6 +10,7 @@ export type Property = {
   beds: number;
   type: string;
   status: PropertyStatus;
+  featured?: boolean;
   img: string;
   gallery: string[];
   blurb: string;

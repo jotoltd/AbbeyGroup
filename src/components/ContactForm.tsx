@@ -34,6 +34,8 @@ export default function ContactForm({
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error();
+      const data = await res.json().catch(() => ({}));
+      if (!data.emailed) throw new Error();
       setState("sent");
     } catch {
       // No email backend configured — fall back to the visitor's email client

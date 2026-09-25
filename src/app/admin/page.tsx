@@ -11,6 +11,7 @@ type Property = {
   beds: number;
   type: string;
   status: string;
+  featured?: boolean;
   img: string;
   gallery: string[];
   blurb: string;
@@ -38,6 +39,33 @@ type Viewing = {
   date: string;
   message: string;
   createdAt: string;
+  status?: string;
+  note?: string;
+};
+
+type Enquiry = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  subject: string;
+  message: string;
+  createdAt: string;
+  status?: string;
+  note?: string;
+};
+
+type LogEntry = { at: string; user: string; action: string; detail: string };
+
+const VIEWING_STATUSES = ["new", "contacted", "booked", "done"];
+const ENQUIRY_STATUSES = ["new", "in-progress", "done"];
+
+const reqStatusCls: Record<string, string> = {
+  new: "bg-rust/10 text-rust",
+  contacted: "bg-copper/15 text-copper",
+  booked: "bg-sage/15 text-sage-dark",
+  "in-progress": "bg-copper/15 text-copper",
+  done: "bg-ink/10 text-ink/50",
 };
 
 type SiteContent = {
@@ -87,7 +115,13 @@ export default function Admin() {
   );
   const [authed, setAuthed] = useState(false);
   const [tab, setTab] = useState<
-    "listings" | "developments" | "content" | "viewings" | "users"
+    | "listings"
+    | "developments"
+    | "content"
+    | "viewings"
+    | "enquiries"
+    | "users"
+    | "activity"
   >("listings");
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [newUsername, setNewUsername] = useState("");
@@ -100,6 +134,8 @@ export default function Admin() {
   const [siteContent, setSiteContent] = useState<SiteContent | null>(null);
   const [savedContent, setSavedContent] = useState<SiteContent | null>(null);
   const [viewings, setViewings] = useState<Viewing[]>([]);
+  const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
+  const [activity, setActivity] = useState<LogEntry[]>([]);
 
   const [selected, setSelected] = useState<Property | null>(null);
   const [selectedDev, setSelectedDev] = useState<Development | null>(null);
@@ -182,13 +218,15 @@ export default function Admin() {
       fetch("/api/admin/content", { headers: h }),
       fetch("/api/admin/images", { headers: h }),
       fetch("/api/admin/viewings", { headers: h }),
+      fetch("/api/admin/enquiries", { headers: h }),
       fetch("/api/admin/users", { headers: h }),
+      fetch("/api/admin/log", { headers: h }),
     ]).catch(() => null);
     if (!responses) {
       setMsg("Could not reach the server — try again.");
       return;
     }
-    const [pRes, dRes, cRes, iRes, vRes, uRes] = responses;
+    const [pRes, dRes, cRes, iRes, vRes, eRes, uRes, lRes] = responses;
     if (!pRes.ok) {
       setMsg("Session expired — sign in again");
       sessionStorage.removeItem("abbey-admin");
@@ -211,7 +249,9 @@ export default function Admin() {
     }
     if (iRes.ok) setImages(await iRes.json());
     if (vRes.ok) setViewings(await vRes.json());
+    if (eRes.ok) setEnquiries(await eRes.json());
     if (uRes.ok) setUsers(await uRes.json());
+    if (lRes.ok) setActivity(await lRes.json());
     setAuthed(true);
     sessionStorage.setItem("abbey-admin", pw);
     setMsg("");
@@ -324,7 +364,10 @@ export default function Admin() {
     }
   }
 
-  function update(field: keyof Property, value: string | number | string[]) {
+  function update(
+    field: keyof Property,
+    value: string | number | boolean | string[],
+  ) {
     if (!selected) return;
     const next = { ...selected, [field]: value };
     if (field === "name" && !slugTouched) next.slug = slugify(String(value));
@@ -405,6 +448,30 @@ export default function Admin() {
     setConfirmDelete(false);
   }
 
+  async function patchRequest(
+    kind: "viewings" | "enquiries",
+    id: string,
+    patch: { status?: string; note?: string },
+  ) {
+    try {
+      const res = await fetch(`/api/admin/${kind}`, {
+        method: "PATCH",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ id, ...patch }),
+      });
+      if (!res.ok) {
+        setMsg("Could not update request");
+        return;
+      }
+      const apply = <T extends { id: string }>(list: T[]) =>
+        list.map((e) => (e.id === id ? { ...e, ...patch } : e));
+      if (kind === "viewings") setViewings(apply(viewings));
+      else setEnquiries(apply(enquiries));
+    } catch {
+      setMsg("Could not reach the server — request not updated.");
+    }
+  }
+
   async function removeViewing(id: string) {
     try {
       const res = await fetch(
@@ -416,6 +483,63 @@ export default function Admin() {
     } catch {
       setMsg("Could not reach the server — request not removed.");
     }
+  }
+
+  async function removeEnquiry(id: string) {
+    try {
+      const res = await fetch(
+        `/api/admin/enquiries?id=${encodeURIComponent(id)}`,
+        { method: "DELETE", headers },
+      );
+      if (res.ok) setEnquiries(enquiries.filter((e) => e.id !== id));
+      else setMsg("Could not remove enquiry");
+    } catch {
+      setMsg("Could not reach the server — enquiry not removed.");
+    }
+  }
+
+  async function deleteImage(src: string, force = false) {
+    try {
+      const res = await fetch(
+        `/api/admin/images?src=${encodeURIComponent(src)}${force ? "&force=1" : ""}`,
+        { method: "DELETE", headers },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 409) {
+        const list = (data.usedBy ?? []).join(", ");
+        if (window.confirm(`This image is used by: ${list}.\n\nDelete anyway?`))
+          return deleteImage(src, true);
+        return;
+      }
+      if (!res.ok) {
+        setMsg(data.error || "Could not delete image");
+        return;
+      }
+      setImages(images.filter((i) => i !== src));
+      setMsg("Saved — image deleted.");
+    } catch {
+      setMsg("Could not reach the server — image not deleted.");
+    }
+  }
+
+  function duplicateProperty(p: Property) {
+    let slug = `${p.slug}-copy`;
+    let n = 2;
+    while (items.some((x) => x.slug === slug)) slug = `${p.slug}-copy-${n++}`;
+    const copy: Property = {
+      ...p,
+      slug,
+      name: `${p.name} (copy)`,
+      status: "Draft",
+      gallery: [...p.gallery],
+    };
+    const i = items.findIndex((x) => x.slug === p.slug);
+    const next = [...items];
+    next.splice(i + 1, 0, copy);
+    setItems(next);
+    setSelected(copy);
+    setSlugTouched(true);
+    setConfirmDelete(false);
   }
 
   async function upload(file: File) {
@@ -545,9 +669,14 @@ export default function Admin() {
             ["content", "Site content"],
             [
               "viewings",
-              `Viewings${viewings.length ? ` (${viewings.length})` : ""}`,
+              `Viewings${viewings.filter((v) => (v.status ?? "new") === "new").length ? ` (${viewings.filter((v) => (v.status ?? "new") === "new").length})` : ""}`,
+            ],
+            [
+              "enquiries",
+              `Enquiries${enquiries.filter((e) => (e.status ?? "new") === "new").length ? ` (${enquiries.filter((e) => (e.status ?? "new") === "new").length})` : ""}`,
             ],
             ["users", "Users"],
+            ["activity", "Activity"],
           ] as const
         ).map(([key, labelText]) => (
           <button
@@ -625,6 +754,11 @@ export default function Admin() {
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium">
+                          {p.featured && (
+                            <span className="mr-1 text-copper" title="Featured">
+                              ★
+                            </span>
+                          )}
                           {p.name}
                         </span>
                         <span className="block truncate text-xs text-ink/50">
@@ -757,6 +891,15 @@ export default function Admin() {
                     onChange={(e) => update("type", e.target.value)}
                   />
                 </div>
+                <label className="flex items-center gap-2 self-end pb-2 text-xs uppercase tracking-[0.15em] text-ink/60">
+                  <input
+                    type="checkbox"
+                    checked={!!selected.featured}
+                    onChange={(e) => update("featured", e.target.checked)}
+                    className="h-4 w-4 accent-[#9a5b3c]"
+                  />
+                  Featured — shown first
+                </label>
                 <div>
                   <label className={label}>Main image</label>
                   <div className="flex gap-2">
@@ -836,30 +979,38 @@ export default function Admin() {
                         : "Save changes to preview"}
                     </span>
                   )}
-                  {confirmDelete ? (
-                    <span className="flex items-center gap-3 text-xs">
-                      Sure?
-                      <button
-                        onClick={() => removeProperty(selected.slug)}
-                        className="uppercase tracking-[0.15em] text-rust underline"
-                      >
-                        Yes, delete
-                      </button>
-                      <button
-                        onClick={() => setConfirmDelete(false)}
-                        className="uppercase tracking-[0.15em] text-ink/50 underline"
-                      >
-                        Cancel
-                      </button>
-                    </span>
-                  ) : (
+                  <span className="flex items-center gap-4">
                     <button
-                      onClick={() => setConfirmDelete(true)}
-                      className="text-xs uppercase tracking-[0.18em] text-rust underline"
+                      onClick={() => duplicateProperty(selected)}
+                      className="text-xs uppercase tracking-[0.18em] text-ink/60 underline hover:text-ink"
                     >
-                      Delete this property
+                      Duplicate
                     </button>
-                  )}
+                    {confirmDelete ? (
+                      <span className="flex items-center gap-3 text-xs">
+                        Sure?
+                        <button
+                          onClick={() => removeProperty(selected.slug)}
+                          className="uppercase tracking-[0.15em] text-rust underline"
+                        >
+                          Yes, delete
+                        </button>
+                        <button
+                          onClick={() => setConfirmDelete(false)}
+                          className="uppercase tracking-[0.15em] text-ink/50 underline"
+                        >
+                          Cancel
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDelete(true)}
+                        className="text-xs uppercase tracking-[0.18em] text-rust underline"
+                      >
+                        Delete this property
+                      </button>
+                    )}
+                  </span>
                 </div>
               </div>
             ) : (
@@ -1257,7 +1408,12 @@ export default function Admin() {
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium">{v.name}</p>
                         <p className="mt-0.5 text-xs text-ink/50">
-                          {v.email}
+                          <a
+                            href={`mailto:${v.email}`}
+                            className="underline hover:text-rust"
+                          >
+                            {v.email}
+                          </a>
                           {v.phone && ` · ${v.phone}`}
                         </p>
                         {v.date && (
@@ -1270,8 +1426,32 @@ export default function Admin() {
                             {v.message}
                           </p>
                         )}
+                        <input
+                          className="mt-2 w-full border-0 border-b border-transparent bg-transparent px-0 py-1 text-xs text-ink/60 placeholder:text-ink/30 focus:border-mist focus:outline-none"
+                          placeholder="Add a note…"
+                          defaultValue={v.note ?? ""}
+                          onBlur={(e) => {
+                            if (e.target.value !== (v.note ?? ""))
+                              patchRequest("viewings", v.id, {
+                                note: e.target.value,
+                              });
+                          }}
+                        />
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-2">
+                        <select
+                          value={v.status ?? "new"}
+                          onChange={(e) =>
+                            patchRequest("viewings", v.id, {
+                              status: e.target.value,
+                            })
+                          }
+                          className={`px-2 py-1 text-[10px] uppercase tracking-[0.15em] ${reqStatusCls[v.status ?? "new"]}`}
+                        >
+                          {VIEWING_STATUSES.map((s) => (
+                            <option key={s}>{s}</option>
+                          ))}
+                        </select>
                         <p className="text-[11px] text-ink/45">
                           {new Date(v.createdAt).toLocaleString("en-GB", {
                             day: "numeric",
@@ -1292,6 +1472,121 @@ export default function Admin() {
                 </ul>
               </section>
             ))
+          )}
+        </div>
+      )}
+
+      {tab === "enquiries" && (
+        <div>
+          {enquiries.length === 0 ? (
+            <p className="text-sm text-ink/50">No enquiries yet.</p>
+          ) : (
+            <ul className="divide-y divide-mist border-y border-mist">
+              {enquiries.map((e) => (
+                <li key={e.id} className="flex gap-6 px-3 py-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">
+                      {e.name}
+                      {e.subject && (
+                        <span className="ml-2 text-xs font-normal text-ink/50">
+                          — {e.subject}
+                        </span>
+                      )}
+                    </p>
+                    <p className="mt-0.5 text-xs text-ink/50">
+                      <a
+                        href={`mailto:${e.email}`}
+                        className="underline hover:text-rust"
+                      >
+                        {e.email}
+                      </a>
+                      {e.phone && ` · ${e.phone}`}
+                    </p>
+                    <p className="mt-2 text-sm leading-relaxed text-ink/70">
+                      {e.message}
+                    </p>
+                    <input
+                      className="mt-2 w-full border-0 border-b border-transparent bg-transparent px-0 py-1 text-xs text-ink/60 placeholder:text-ink/30 focus:border-mist focus:outline-none"
+                      placeholder="Add a note…"
+                      defaultValue={e.note ?? ""}
+                      onBlur={(ev) => {
+                        if (ev.target.value !== (e.note ?? ""))
+                          patchRequest("enquiries", e.id, {
+                            note: ev.target.value,
+                          });
+                      }}
+                    />
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    <select
+                      value={e.status ?? "new"}
+                      onChange={(ev) =>
+                        patchRequest("enquiries", e.id, {
+                          status: ev.target.value,
+                        })
+                      }
+                      className={`px-2 py-1 text-[10px] uppercase tracking-[0.15em] ${reqStatusCls[e.status ?? "new"]}`}
+                    >
+                      {ENQUIRY_STATUSES.map((s) => (
+                        <option key={s}>{s}</option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] text-ink/45">
+                      {new Date(e.createdAt).toLocaleString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                    <button
+                      onClick={() => removeEnquiry(e.id)}
+                      className="text-[11px] uppercase tracking-[0.15em] text-ink/50 underline hover:text-rust"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {tab === "activity" && (
+        <div className="max-w-3xl">
+          <h2 className="mb-4 text-xs font-normal uppercase tracking-[0.25em] text-ink/50">
+            Recent admin activity
+          </h2>
+          {activity.length === 0 ? (
+            <p className="text-sm text-ink/50">Nothing recorded yet.</p>
+          ) : (
+            <ul className="divide-y divide-mist border-y border-mist">
+              {activity.slice(0, 100).map((l, i) => (
+                <li
+                  key={i}
+                  className="flex items-baseline gap-4 px-3 py-2.5 text-sm"
+                >
+                  <span className="shrink-0 text-[11px] text-ink/45">
+                    {new Date(l.at).toLocaleString("en-GB", {
+                      day: "numeric",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                  <span className="shrink-0 text-xs uppercase tracking-[0.15em] text-sage-dark">
+                    {l.user}
+                  </span>
+                  <span className="text-ink/80">
+                    {l.action}
+                    {l.detail && (
+                      <span className="text-ink/50"> — {l.detail}</span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       )}
@@ -1432,22 +1727,41 @@ export default function Admin() {
             </div>
 
             <div className="grid flex-1 grid-cols-3 gap-3 overflow-y-auto sm:grid-cols-4 md:grid-cols-5">
-              {images.map((src) => (
-                <button
-                  key={src}
-                  onClick={() => pickImage(src)}
-                  className="group relative aspect-[4/3] overflow-hidden bg-mist"
-                  title={src}
-                >
-                  <Image
-                    src={src}
-                    alt=""
-                    fill
-                    sizes="160px"
-                    className="object-cover transition-transform group-hover:scale-105"
-                  />
-                </button>
-              ))}
+              {images.map((src) => {
+                const uploaded =
+                  src.startsWith("/images/uploads/") ||
+                  src.includes("/images/uploads/");
+                return (
+                  <span
+                    key={src}
+                    className="group relative aspect-[4/3] overflow-hidden bg-mist"
+                  >
+                    <button
+                      onClick={() => pickImage(src)}
+                      className="absolute inset-0"
+                      title={src}
+                    >
+                      <Image
+                        src={src}
+                        alt=""
+                        fill
+                        sizes="160px"
+                        className="object-cover transition-transform group-hover:scale-105"
+                      />
+                    </button>
+                    {uploaded && (
+                      <button
+                        onClick={() => deleteImage(src)}
+                        className="absolute right-0 top-0 z-10 bg-ink/70 px-1.5 py-0.5 text-[10px] text-white opacity-0 transition-opacity hover:bg-rust group-hover:opacity-100"
+                        aria-label="Delete image"
+                        title="Delete image"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </span>
+                );
+              })}
             </div>
           </div>
         </div>

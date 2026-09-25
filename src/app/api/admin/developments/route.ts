@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getDoc, setDoc } from "@/data/store";
-import { authorised } from "../_auth";
+import { getDoc, setDoc, audit } from "@/data/store";
+import { authorised, caller } from "../_auth";
 
 type Dev = { slug: string; name: string; location: string };
 type Prop = { development: string };
@@ -78,6 +78,11 @@ export async function PUT(req: Request) {
 
     await setDoc("developments", body);
     if (propsChanged) await setDoc("properties", props);
+    await audit(
+      caller(req) ?? "admin",
+      "save developments",
+      `${body.length} items`,
+    );
     revalidatePath("/", "layout");
   } catch {
     return NextResponse.json(

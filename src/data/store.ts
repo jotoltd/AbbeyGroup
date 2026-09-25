@@ -8,14 +8,18 @@ export type DataKey =
   | "developments"
   | "content"
   | "viewings"
-  | "users";
+  | "enquiries"
+  | "users"
+  | "log";
 
 const FILES: Record<DataKey, string> = {
   properties: "properties.json",
   developments: "developments.json",
   content: "content.json",
   viewings: "viewings.json",
+  enquiries: "enquiries.json",
   users: "users.json",
+  log: "log.json",
 };
 
 const BUCKET = "data";
@@ -127,4 +131,28 @@ export async function setDoc(key: DataKey, value: unknown): Promise<void> {
       upsert: true,
     });
   if (error) throw new Error(error.message);
+}
+
+export type LogEntry = {
+  at: string;
+  user: string;
+  action: string;
+  detail: string;
+};
+
+const LOG_CAP = 300;
+
+/** Append an audit-log entry. Best-effort — never throws. */
+export async function audit(
+  user: string,
+  action: string,
+  detail = "",
+): Promise<void> {
+  try {
+    const log = await getDoc<LogEntry[]>("log", []);
+    log.unshift({ at: new Date().toISOString(), user, action, detail });
+    await setDoc("log", log.slice(0, LOG_CAP));
+  } catch {
+    // logging must never break the underlying operation
+  }
 }

@@ -2,7 +2,10 @@
 
 Next.js site for The Abbey Group — fine homes and property development in
 Norfolk. Includes an admin CMS at `/admin` for listings, developments, site
-copy and viewing requests.
+copy, viewing requests, contact enquiries and admin users. Viewing requests
+and enquiries can be tracked through statuses with notes, CMS-uploaded images
+can be deleted (with a usage check), and the **Activity** tab records an audit
+log of admin actions.
 
 ## Getting started
 
@@ -48,5 +51,6 @@ pages also revalidate every 5 minutes as a safety net.
 ## Contact form email
 
 Set `RESEND_API_KEY`, `CONTACT_TO` and `CONTACT_FROM` (see `.env.example`) to
-deliver contact form submissions by email via Resend. Without them the form
-falls back to the visitor's email client.
+deliver contact form submissions by email via Resend. Submissions are also
+stored and viewable in the admin **Enquiries** tab regardless; without Resend
+the form additionally falls back to the visitor's email client.

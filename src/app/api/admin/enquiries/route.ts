@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { getDoc, setDoc, audit } from "@/data/store";
-import type { Viewing, ViewingStatus } from "@/data/server";
+import type { Enquiry, EnquiryStatus } from "@/data/server";
 import { authorised, caller } from "../_auth";
 
-const STATUSES: ViewingStatus[] = ["new", "contacted", "booked", "done"];
+const STATUSES: EnquiryStatus[] = ["new", "in-progress", "done"];
 
 export async function GET(req: Request) {
   if (!(await authorised(req)))
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-  const list = await getDoc<Viewing[]>("viewings", []);
+  const list = await getDoc<Enquiry[]>("enquiries", []);
   return NextResponse.json(list.slice().reverse());
 }
 
@@ -24,18 +24,14 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
 
   try {
-    const list = await getDoc<Viewing[]>("viewings", []);
-    const entry = list.find((v) => v.id === id);
+    const list = await getDoc<Enquiry[]>("enquiries", []);
+    const entry = list.find((e) => e.id === id);
     if (!entry)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     if (status) entry.status = status;
     if (typeof note === "string") entry.note = note.slice(0, 2000);
-    await setDoc("viewings", list);
-    await audit(
-      caller(req) ?? "admin",
-      "update viewing",
-      `${entry.name} — ${entry.property}`,
-    );
+    await setDoc("enquiries", list);
+    await audit(caller(req) ?? "admin", "update enquiry", entry.name);
   } catch {
     return NextResponse.json({ error: "Could not update" }, { status: 500 });
   }
@@ -52,17 +48,13 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   try {
-    const list = await getDoc<Viewing[]>("viewings", []);
-    const entry = list.find((v) => v.id === id);
+    const list = await getDoc<Enquiry[]>("enquiries", []);
+    const entry = list.find((e) => e.id === id);
     await setDoc(
-      "viewings",
-      list.filter((v) => v.id !== id),
+      "enquiries",
+      list.filter((e) => e.id !== id),
     );
-    await audit(
-      caller(req) ?? "admin",
-      "delete viewing",
-      entry ? `${entry.name} — ${entry.property}` : id,
-    );
+    await audit(caller(req) ?? "admin", "delete enquiry", entry?.name ?? id);
   } catch {
     return NextResponse.json({ error: "Could not update" }, { status: 500 });
   }

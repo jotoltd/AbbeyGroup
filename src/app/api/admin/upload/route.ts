@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
 import { supabaseAdmin } from "@/lib/supabase";
-import { authorised } from "../_auth";
+import { audit } from "@/data/store";
+import { authorised, caller } from "../_auth";
 
 const UPLOAD_DIR = path.join(process.cwd(), "public/images/uploads");
 const ALLOWED = new Set(["jpg", "jpeg", "png", "webp", "avif", "gif"]);
@@ -40,6 +41,7 @@ export async function POST(req: Request) {
         { error: `Upload failed: ${error.message}` },
         { status: 500 },
       );
+    await audit(caller(req) ?? "admin", "upload image", key);
     return NextResponse.json({
       path: sb.storage.from(BUCKET).getPublicUrl(key).data.publicUrl,
     });
