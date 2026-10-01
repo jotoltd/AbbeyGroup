@@ -5,6 +5,9 @@ import { useState } from "react";
 const input =
   "w-full border border-mist bg-white px-4 py-3.5 text-sm text-ink placeholder:text-taupe focus:border-rust focus:outline-none";
 
+const label =
+  "mb-1.5 block text-[10px] uppercase tracking-[0.18em] text-ink/50";
+
 export default function ContactForm({
   defaultSubject = "",
 }: {
@@ -13,6 +16,7 @@ export default function ContactForm({
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">(
     "idle",
   );
+  const [viaMailto, setViaMailto] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -51,17 +55,30 @@ export default function ContactForm({
       window.location.href = `mailto:jonathan@theabbeygroupnorfolk.com?subject=${encodeURIComponent(
         payload.subject,
       )}&body=${encodeURIComponent(body)}`;
+      setViaMailto(true);
       setState("sent");
     }
   }
 
   if (state === "sent") {
     return (
-      <div className="border border-mist bg-sage/10 px-8 py-14 text-center">
+      <div
+        role="status"
+        className="border border-mist bg-sage/10 px-8 py-14 text-center"
+      >
         <h3 className="font-display text-3xl font-medium">Thank you</h3>
         <p className="mt-4 text-sm leading-relaxed text-ink/70">
-          Your message is on its way. If you haven&rsquo;t heard back within a
-          working day, email us directly at{" "}
+          {viaMailto ? (
+            <>
+              Your email app should have opened with your message ready to send
+              — just press send. If it didn&rsquo;t, email us directly at{" "}
+            </>
+          ) : (
+            <>
+              Your message is on its way. If you haven&rsquo;t heard back within
+              a working day, email us directly at{" "}
+            </>
+          )}
           <a
             href="mailto:jonathan@theabbeygroupnorfolk.com"
             className="text-rust underline"
@@ -76,40 +93,85 @@ export default function ContactForm({
 
   return (
     <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
-      <input
-        name="firstName"
-        required
-        placeholder="First name"
-        className={input}
-      />
-      <input name="lastName" required placeholder="Last name" className={input} />
-      <input
-        name="email"
-        type="email"
-        required
-        placeholder="Email"
-        className={input}
-      />
-      <input name="phone" type="tel" placeholder="Phone" className={input} />
-      <input
-        name="subject"
-        defaultValue={defaultSubject}
-        placeholder="Subject"
-        className={`${input} sm:col-span-2`}
-      />
-      <textarea
-        name="message"
-        required
-        rows={6}
-        placeholder="Type your message here…"
-        className={`${input} resize-none sm:col-span-2`}
-      />
+      <div>
+        <label htmlFor="firstName" className={label}>
+          First name
+        </label>
+        <input
+          id="firstName"
+          name="firstName"
+          required
+          autoComplete="given-name"
+          className={input}
+        />
+      </div>
+      <div>
+        <label htmlFor="lastName" className={label}>
+          Last name
+        </label>
+        <input
+          id="lastName"
+          name="lastName"
+          required
+          autoComplete="family-name"
+          className={input}
+        />
+      </div>
+      <div>
+        <label htmlFor="email" className={label}>
+          Email
+        </label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          required
+          autoComplete="email"
+          className={input}
+        />
+      </div>
+      <div>
+        <label htmlFor="phone" className={label}>
+          Phone <span className="normal-case">(optional)</span>
+        </label>
+        <input
+          id="phone"
+          name="phone"
+          type="tel"
+          autoComplete="tel"
+          className={input}
+        />
+      </div>
+      <div className="sm:col-span-2">
+        <label htmlFor="subject" className={label}>
+          Subject
+        </label>
+        <input
+          id="subject"
+          name="subject"
+          defaultValue={defaultSubject}
+          className={input}
+        />
+      </div>
+      <div className="sm:col-span-2">
+        <label htmlFor="message" className={label}>
+          Message
+        </label>
+        <textarea
+          id="message"
+          name="message"
+          required
+          rows={6}
+          placeholder="Type your message here…"
+          className={`${input} resize-none`}
+        />
+      </div>
       <button
         type="submit"
         disabled={state === "sending"}
-        className="mt-2 bg-sage px-10 py-4 text-xs font-normal uppercase tracking-[0.2em] text-white transition-colors hover:bg-sage-dark disabled:opacity-60 sm:col-span-2 sm:w-fit"
+        className="mt-2 bg-sage px-10 py-4 text-xs font-normal uppercase tracking-[0.2em] text-white transition-colors hover:bg-sage-dark disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-2 sm:w-fit"
       >
-        {state === "sending" ? "Sending…" : "Submit"}
+        {state === "sending" ? "Sending…" : "Send message"}
       </button>
     </form>
   );

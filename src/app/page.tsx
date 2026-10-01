@@ -3,6 +3,12 @@ import Link from "next/link";
 import Reveal from "@/components/Reveal";
 import RotatingWord from "@/components/RotatingWord";
 import { getContent } from "@/data/server";
+import { SITE_DESCRIPTION, pageMetadata } from "@/lib/seo";
+
+export const metadata = pageMetadata({
+  description: SITE_DESCRIPTION,
+  path: "/",
+});
 
 export default async function Home() {
   const content = await getContent();

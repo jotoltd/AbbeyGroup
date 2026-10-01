@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export default function Gallery({
   images,
@@ -11,6 +11,8 @@ export default function Gallery({
   alt: string;
 }) {
   const [open, setOpen] = useState<number | null>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
 
   const step = useCallback(
     (dir: -1 | 1) =>
@@ -20,16 +22,27 @@ export default function Gallery({
     [images.length],
   );
 
+  const isOpen = open !== null;
+
   useEffect(() => {
-    if (open === null) return;
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    const trigger = triggerRef.current;
+    document.body.style.overflow = "hidden";
+    closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(null);
       if (e.key === "ArrowLeft") step(-1);
       if (e.key === "ArrowRight") step(1);
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, step]);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+      trigger?.focus();
+      triggerRef.current = null;
+    };
+  }, [isOpen, step]);
 
   return (
     <>
@@ -37,8 +50,11 @@ export default function Gallery({
         {images.map((src, i) => (
           <button
             key={src}
-            onClick={() => setOpen(i)}
-            className={`relative overflow-hidden ${
+            onClick={(e) => {
+              triggerRef.current = e.currentTarget;
+              setOpen(i);
+            }}
+            className={`relative cursor-zoom-in overflow-hidden ${
               i === 0 ? "aspect-[16/10] sm:col-span-2" : "aspect-[4/3]"
             }`}
           >
@@ -55,28 +71,32 @@ export default function Gallery({
 
       {open !== null && (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-ink/90 p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${alt} photo gallery`}
+          className="animate-[fadeIn_0.2s_ease-out] fixed inset-0 z-[70] flex cursor-zoom-out items-center justify-center bg-ink/90 p-6"
           onClick={() => setOpen(null)}
         >
           <button
-            className="absolute right-6 top-6 text-2xl text-white/70 hover:text-white"
+            ref={closeRef}
+            className="absolute right-6 top-6 p-2 text-2xl text-white/70 transition-colors hover:text-white"
             onClick={() => setOpen(null)}
-            aria-label="Close"
+            aria-label="Close gallery"
           >
             ✕
           </button>
           <button
-            className="absolute left-4 top-1/2 -translate-y-1/2 p-4 text-3xl text-white/70 hover:text-white"
+            className="absolute left-4 top-1/2 -translate-y-1/2 p-4 text-3xl text-white/70 transition-colors hover:text-white"
             onClick={(e) => {
               e.stopPropagation();
               step(-1);
             }}
-            aria-label="Previous"
+            aria-label="Previous photo"
           >
             ‹
           </button>
           <div
-            className="relative h-[80vh] w-full max-w-5xl"
+            className="relative h-[80vh] w-full max-w-5xl cursor-default"
             onClick={(e) => e.stopPropagation()}
           >
             <Image
@@ -88,12 +108,12 @@ export default function Gallery({
             />
           </div>
           <button
-            className="absolute right-4 top-1/2 -translate-y-1/2 p-4 text-3xl text-white/70 hover:text-white"
+            className="absolute right-4 top-1/2 -translate-y-1/2 p-4 text-3xl text-white/70 transition-colors hover:text-white"
             onClick={(e) => {
               e.stopPropagation();
               step(1);
             }}
-            aria-label="Next"
+            aria-label="Next photo"
           >
             ›
           </button>

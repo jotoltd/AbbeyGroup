@@ -28,6 +28,15 @@ export default function SiteNav() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenu({ open: false, path: pathname });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, pathname]);
+
   return (
     <header
       className={`fixed inset-x-0 top-0 z-50 border-b border-mist bg-white/95 backdrop-blur transition-all duration-300 ${
@@ -37,6 +46,7 @@ export default function SiteNav() {
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-10">
         <Link
           href="/"
+          aria-label="The Abbey Group — home"
           className="relative block h-14 w-56 shrink-0 md:h-20 md:w-80"
         >
           <Image
@@ -49,20 +59,25 @@ export default function SiteNav() {
           />
         </Link>
 
-        <nav className="hidden items-center gap-8 md:flex">
-          {links.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className={`nav-link text-[13px] font-normal uppercase tracking-[0.18em] transition-colors ${
-                pathname === l.href
-                  ? "active text-rust"
-                  : "text-ink/70 hover:text-ink"
-              }`}
-            >
-              {l.label}
-            </Link>
-          ))}
+        <nav aria-label="Primary" className="hidden items-center gap-8 md:flex">
+          {links.map((l) => {
+            const active =
+              l.href === "/"
+                ? pathname === "/"
+                : pathname.startsWith(l.href);
+            return (
+              <Link
+                key={l.href}
+                href={l.href}
+                aria-current={active ? "page" : undefined}
+                className={`nav-link text-[13px] font-normal uppercase tracking-[0.18em] transition-colors ${
+                  active ? "active text-rust" : "text-ink/70 hover:text-ink"
+                }`}
+              >
+                {l.label}
+              </Link>
+            );
+          })}
           <Link
             href="/contact"
             className="bg-sage px-5 py-2 text-[13px] uppercase tracking-[0.18em] text-white transition-colors hover:bg-sage-dark"
@@ -73,7 +88,9 @@ export default function SiteNav() {
 
         <button
           onClick={() => setOpen(!open)}
-          aria-label="Toggle menu"
+          aria-label={open ? "Close menu" : "Open menu"}
+          aria-expanded={open}
+          aria-controls="mobile-menu"
           className="flex h-10 w-10 flex-col items-center justify-center gap-1.5 md:hidden"
         >
           <span
@@ -86,18 +103,35 @@ export default function SiteNav() {
       </div>
 
       {open && (
-        <nav className="border-t border-mist bg-cream px-6 pb-6 pt-2 md:hidden">
-          {links.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className={`block border-b border-mist py-4 text-sm uppercase tracking-[0.18em] ${
-                pathname === l.href ? "text-rust" : "text-ink/80"
-              }`}
-            >
-              {l.label}
-            </Link>
-          ))}
+        <nav
+          id="mobile-menu"
+          aria-label="Mobile"
+          className="animate-[fadeIn_0.3s_ease-out] border-t border-mist bg-cream px-6 pb-6 pt-2 md:hidden"
+        >
+          {links.map((l) => {
+            const active =
+              l.href === "/"
+                ? pathname === "/"
+                : pathname.startsWith(l.href);
+            return (
+              <Link
+                key={l.href}
+                href={l.href}
+                aria-current={active ? "page" : undefined}
+                className={`block border-b border-mist py-4 text-sm uppercase tracking-[0.18em] ${
+                  active ? "text-rust" : "text-ink/80"
+                }`}
+              >
+                {l.label}
+              </Link>
+            );
+          })}
+          <Link
+            href="/contact"
+            className="mt-4 block bg-sage px-5 py-3 text-center text-sm uppercase tracking-[0.18em] text-white transition-colors hover:bg-sage-dark"
+          >
+            Enquire
+          </Link>
         </nav>
       )}
     </header>

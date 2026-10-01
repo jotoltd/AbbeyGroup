@@ -3,8 +3,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Reveal from "@/components/Reveal";
+import Breadcrumbs from "@/components/Breadcrumbs";
+import JsonLd from "@/components/JsonLd";
 import { formatPrice } from "@/data/properties";
 import { getDevelopments, getProperties } from "@/data/server";
+import {
+  SITE_LOCALE,
+  SITE_NAME,
+  absoluteUrl,
+  breadcrumbJsonLd,
+} from "@/lib/seo";
 
 export async function generateStaticParams() {
   return (await getDevelopments()).map((d) => ({ slug: d.slug }));
@@ -16,7 +24,20 @@ export async function generateMetadata({
   const { slug } = await params;
   const d = (await getDevelopments()).find((x) => x.slug === slug);
   if (!d) return {};
-  return { title: `${d.name}, ${d.location}`, description: d.strapline };
+  return {
+    title: `${d.name}, ${d.location}`,
+    description: d.strapline,
+    alternates: { canonical: `/developments/${d.slug}` },
+    openGraph: {
+      title: `${d.name}, ${d.location} | ${SITE_NAME}`,
+      description: d.strapline,
+      url: `/developments/${d.slug}`,
+      siteName: SITE_NAME,
+      locale: SITE_LOCALE,
+      images: [d.hero],
+      type: "website",
+    },
+  };
 }
 
 export default async function DevelopmentPage({
@@ -34,6 +55,23 @@ export default async function DevelopmentPage({
 
   return (
     <>
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "RealEstateListing",
+          name: `${d.name}, ${d.location}`,
+          description: d.strapline,
+          url: absoluteUrl(`/developments/${d.slug}`),
+          image: absoluteUrl(d.hero),
+        }}
+      />
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: "Home", path: "/" },
+          { name: "Developments", path: "/developments" },
+          { name: `${d.name}, ${d.location}`, path: `/developments/${d.slug}` },
+        ])}
+      />
       <section className="relative flex min-h-[80svh] items-end overflow-hidden">
         <Image
           src={d.hero}
@@ -46,6 +84,15 @@ export default async function DevelopmentPage({
         <div className="absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/25 to-ink/10" />
         <div className="relative mx-auto w-full max-w-7xl px-6 pb-20 pt-40 lg:px-10">
           <Reveal>
+            <Breadcrumbs
+              dark
+              className="mb-10"
+              items={[
+                { label: "Home", href: "/" },
+                { label: "Developments", href: "/developments" },
+                { label: `${d.name}, ${d.location}` },
+              ]}
+            />
             <p className="mb-6 text-xs uppercase tracking-[0.35em] text-sand">
               {d.location}
             </p>

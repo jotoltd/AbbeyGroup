@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const input =
   "w-full border border-mist bg-white px-4 py-3 text-sm text-ink placeholder:text-taupe focus:border-rust focus:outline-none";
+
+const label =
+  "mb-1 block text-[10px] uppercase tracking-[0.18em] text-ink/50";
 
 export default function ViewingRequest({
   slug,
@@ -18,6 +21,29 @@ export default function ViewingRequest({
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">(
     "idle",
   );
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Lock body scroll and manage focus while the dialog is open
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    const trigger = triggerRef.current;
+    document.body.style.overflow = "hidden";
+    panelRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        setState((s) => (s === "sent" ? "idle" : s));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+      trigger?.focus();
+    };
+  }, [open]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -49,13 +75,17 @@ export default function ViewingRequest({
     if (state === "sent") setState("idle");
   }
 
+  const today = new Date().toISOString().split("T")[0];
+
   return (
     <>
       <button
+        ref={triggerRef}
         onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
         className={
           compact
-            ? "bg-sage px-6 py-3 text-[11px] uppercase tracking-[0.18em] text-white"
+            ? "bg-sage px-6 py-3 text-[11px] uppercase tracking-[0.18em] text-white transition-colors hover:bg-sage-dark"
             : "mt-8 block w-full bg-sage px-6 py-4 text-center text-xs font-normal uppercase tracking-[0.2em] text-white transition-colors hover:bg-sage-dark"
         }
       >
@@ -67,12 +97,22 @@ export default function ViewingRequest({
           onClick={(e) => {
             if (e.target === e.currentTarget) close();
           }}
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/60 p-6"
+          className="animate-[fadeIn_0.25s_ease-out] fixed inset-0 z-[60] flex items-center justify-center bg-ink/60 p-6"
         >
-          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto bg-white p-8">
+          <div
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="viewing-request-title"
+            tabIndex={-1}
+            className="animate-[fadeIn_0.3s_ease-out] max-h-[90vh] w-full max-w-md overflow-y-auto bg-white p-8 shadow-2xl focus:outline-none"
+          >
             <div className="mb-6 flex items-start justify-between gap-6">
               <div>
-                <h3 className="font-display text-2xl font-medium">
+                <h3
+                  id="viewing-request-title"
+                  className="font-display text-2xl font-medium"
+                >
                   Request a viewing
                 </h3>
                 <p className="mt-1 text-xs uppercase tracking-[0.18em] text-ink/50">
@@ -80,16 +120,20 @@ export default function ViewingRequest({
                 </p>
               </div>
               <button
+                type="button"
                 onClick={close}
                 aria-label="Close"
-                className="text-ink/50 hover:text-ink"
+                className="p-2 text-ink/50 hover:text-ink"
               >
                 ✕
               </button>
             </div>
 
             {state === "sent" ? (
-              <div className="border border-sage/30 bg-sage/10 px-6 py-10 text-center">
+              <div
+                role="status"
+                className="border border-sage/30 bg-sage/10 px-6 py-10 text-center"
+              >
                 <p className="font-display text-xl font-medium">
                   Request received
                 </p>
@@ -106,46 +150,81 @@ export default function ViewingRequest({
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="grid gap-3">
-                <input
-                  name="name"
-                  required
-                  placeholder="Full name"
-                  className={input}
-                />
-                <input
-                  name="email"
-                  type="email"
-                  required
-                  placeholder="Email"
-                  className={input}
-                />
-                <input
-                  name="phone"
-                  type="tel"
-                  placeholder="Phone"
-                  className={input}
-                />
                 <div>
-                  <label className="mb-1 block text-[10px] uppercase tracking-[0.18em] text-ink/50">
-                    Preferred date (optional)
+                  <label htmlFor="vr-name" className={label}>
+                    Full name
                   </label>
-                  <input name="date" type="date" className={input} />
+                  <input
+                    id="vr-name"
+                    name="name"
+                    required
+                    autoComplete="name"
+                    className={input}
+                  />
                 </div>
-                <textarea
-                  name="message"
-                  rows={3}
-                  placeholder="Anything we should know? (optional)"
-                  className={`${input} resize-none`}
-                />
+                <div>
+                  <label htmlFor="vr-email" className={label}>
+                    Email
+                  </label>
+                  <input
+                    id="vr-email"
+                    name="email"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    className={input}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="vr-phone" className={label}>
+                    Phone <span className="normal-case">(optional)</span>
+                  </label>
+                  <input
+                    id="vr-phone"
+                    name="phone"
+                    type="tel"
+                    autoComplete="tel"
+                    className={input}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="vr-date" className={label}>
+                    Preferred date{" "}
+                    <span className="normal-case">(optional)</span>
+                  </label>
+                  <input
+                    id="vr-date"
+                    name="date"
+                    type="date"
+                    min={today}
+                    className={input}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="vr-message" className={label}>
+                    Anything we should know?{" "}
+                    <span className="normal-case">(optional)</span>
+                  </label>
+                  <textarea
+                    id="vr-message"
+                    name="message"
+                    rows={3}
+                    className={`${input} resize-none`}
+                  />
+                </div>
                 {state === "error" && (
-                  <p className="text-sm text-rust">
-                    Something went wrong — please call us instead.
+                  <p role="alert" className="text-sm text-rust">
+                    Something went wrong — please call us on{" "}
+                    <a href="tel:+447979997355" className="underline">
+                      07979 997355
+                    </a>{" "}
+                    instead.
                   </p>
                 )}
                 <button
                   type="submit"
                   disabled={state === "sending"}
-                  className="mt-2 bg-sage px-6 py-4 text-xs font-normal uppercase tracking-[0.2em] text-white transition-colors hover:bg-sage-dark disabled:opacity-60"
+                  className="mt-2 bg-sage px-6 py-4 text-xs font-normal uppercase tracking-[0.2em] text-white transition-colors hover:bg-sage-dark disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {state === "sending" ? "Sending…" : "Request viewing"}
                 </button>

@@ -1,13 +1,15 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { Metadata } from "next";
 import Reveal from "@/components/Reveal";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "New Projects — Wood Farm, Edgefield",
   description:
     "Fifteen luxury homes from £545,000 to £1,095,000 at Wood Farm, Edgefield — now available through Savills.",
-};
+  path: "/new-projects",
+  image: "/images/project-1.jpeg",
+});
 
 export default function NewProjects() {
   return (
@@ -34,6 +36,12 @@ export default function NewProjects() {
               15 luxury homes from £545,000 to £1,095,000 — now available
               through Savills.
             </p>
+            <Link
+              href="/developments/wood-farm"
+              className="mt-8 inline-block border border-white/60 px-8 py-4 text-xs font-normal uppercase tracking-[0.2em] text-white transition-colors hover:bg-white hover:text-ink"
+            >
+              See homes &amp; availability
+            </Link>
           </Reveal>
         </div>
       </section>
@@ -102,15 +110,21 @@ export default function NewProjects() {
 
       <section className="grid gap-1 px-1 md:grid-cols-2">
         {[
-          "/images/story-barn-20.jpg",
-          "/images/barn-12.jpg",
-          "/images/story-barn-8.jpg",
-          "/images/barn-14.jpg",
-        ].map((src) => (
+          { src: "/images/story-barn-20.jpg", alt: "Wood Farm, Edgefield" },
+          { src: "/images/barn-12.jpg", alt: "Interior of a Wood Farm home" },
+          {
+            src: "/images/story-barn-8.jpg",
+            alt: "Boot room in a Wood Farm home",
+          },
+          {
+            src: "/images/barn-14.jpg",
+            alt: "Shaker-style kitchen in a Wood Farm home",
+          },
+        ].map(({ src, alt }) => (
           <div key={src} className="relative aspect-[16/10] overflow-hidden">
             <Image
               src={src}
-              alt="Wood Farm home"
+              alt={alt}
               fill
               sizes="(min-width: 768px) 50vw, 100vw"
               className="object-cover transition-transform duration-700 hover:scale-105"

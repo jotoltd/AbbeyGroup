@@ -1,13 +1,14 @@
-import type { Metadata } from "next";
 import PropertyGrid from "@/components/PropertyGrid";
 import Reveal from "@/components/Reveal";
 import { getProperties } from "@/data/server";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "For Sale",
   description:
     "Luxury barn conversions and homes for sale in Norfolk — Wood Farm, Edgefield and Abbey Farm, Alby.",
-};
+  path: "/for-sale",
+});
 
 export default async function ForSale() {
   const properties = await getProperties();

@@ -1,10 +1,13 @@
 import Link from "next/link";
 import Image from "next/image";
+import { developmentLabel } from "@/data/developments";
+import { getDevelopments } from "@/data/server";
 
-export default function SiteFooter() {
+export default async function SiteFooter() {
+  const developments = await getDevelopments();
   return (
     <footer className="border-t-2 border-white bg-sage text-white/75">
-      <div className="mx-auto grid max-w-7xl gap-10 px-6 py-10 md:grid-cols-3 lg:px-10">
+      <div className="mx-auto grid max-w-7xl gap-10 px-6 py-10 md:grid-cols-2 lg:grid-cols-4 lg:px-10">
         <div>
           <div className="relative mb-4 h-14 w-56 bg-white p-1.5">
             <Image
@@ -22,14 +25,15 @@ export default function SiteFooter() {
         </div>
 
         <div>
-          <h4 className="mb-5 text-xs font-normal uppercase tracking-[0.25em] text-copper">
+          <h2 className="mb-5 text-xs font-normal uppercase tracking-[0.25em] text-copper">
             Explore
-          </h4>
+          </h2>
           <ul className="space-y-3 text-sm">
             {[
               ["Home", "/"],
               ["Our Story", "/our-story"],
               ["For Sale", "/for-sale"],
+              ["Developments", "/developments"],
               ["New Projects", "/new-projects"],
               ["Contact", "/contact"],
             ].map(([label, href]) => (
@@ -43,9 +47,27 @@ export default function SiteFooter() {
         </div>
 
         <div>
-          <h4 className="mb-5 text-xs font-normal uppercase tracking-[0.25em] text-copper">
+          <h2 className="mb-5 text-xs font-normal uppercase tracking-[0.25em] text-copper">
+            Developments
+          </h2>
+          <ul className="space-y-3 text-sm">
+            {developments.map((d) => (
+              <li key={d.slug}>
+                <Link
+                  href={`/developments/${d.slug}`}
+                  className="transition-colors hover:text-cream"
+                >
+                  {developmentLabel(d)}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <h2 className="mb-5 text-xs font-normal uppercase tracking-[0.25em] text-copper">
             Contact
-          </h4>
+          </h2>
           <address className="space-y-3 text-sm not-italic leading-relaxed">
             <p>
               Wood Farm, Plumstead Road,

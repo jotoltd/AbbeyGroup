@@ -43,53 +43,74 @@ function PinIcon() {
   );
 }
 
-const statuses = ["All", "Available", "Sold/STC"];
+function ChevronIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      className="pointer-events-none absolute right-4 top-1/2 h-3 w-3 -translate-y-1/2 text-ink/50"
+      aria-hidden
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+const statuses = ["All statuses", "Available", "Sold/STC"];
 
 export default function PropertyGrid({
   properties,
 }: {
   properties: Property[];
 }) {
-  const [dev, setDev] = useState("All");
-  const [status, setStatus] = useState("All");
+  const [dev, setDev] = useState("All developments");
+  const [status, setStatus] = useState("All statuses");
   const developments = [
-    "All",
+    "All developments",
     ...Array.from(new Set(properties.map((p) => p.development))),
   ];
 
   const filtered = properties.filter(
     (p) =>
-      (dev === "All" || p.development === dev) &&
-      (status === "All" ||
+      (dev === "All developments" || p.development === dev) &&
+      (status === "All statuses" ||
         (status === "Available" ? p.status === "For Sale" : p.status !== "For Sale")),
   );
 
   const selectCls =
-    "border border-mist bg-white px-4 py-3 text-xs uppercase tracking-[0.18em] text-ink focus:border-rust focus:outline-none";
+    "w-full cursor-pointer appearance-none border border-mist bg-white px-4 py-3 pr-10 text-xs uppercase tracking-[0.18em] text-ink focus:border-rust focus:outline-none";
 
   return (
     <>
       <div className="mb-12 flex flex-wrap gap-4">
-        <select
-          value={dev}
-          onChange={(e) => setDev(e.target.value)}
-          className={selectCls}
-          aria-label="Filter by development"
-        >
-          {developments.map((d) => (
-            <option key={d}>{d}</option>
-          ))}
-        </select>
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          className={selectCls}
-          aria-label="Filter by status"
-        >
-          {statuses.map((s) => (
-            <option key={s}>{s}</option>
-          ))}
-        </select>
+        <div className="relative">
+          <select
+            value={dev}
+            onChange={(e) => setDev(e.target.value)}
+            className={selectCls}
+            aria-label="Filter by development"
+          >
+            {developments.map((d) => (
+              <option key={d}>{d}</option>
+            ))}
+          </select>
+          <ChevronIcon />
+        </div>
+        <div className="relative">
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className={selectCls}
+            aria-label="Filter by status"
+          >
+            {statuses.map((s) => (
+              <option key={s}>{s}</option>
+            ))}
+          </select>
+          <ChevronIcon />
+        </div>
         <p className="self-center text-xs uppercase tracking-[0.18em] text-ink/50">
           {filtered.length} {filtered.length === 1 ? "home" : "homes"}
         </p>
@@ -151,9 +172,18 @@ export default function PropertyGrid({
       </div>
 
       {filtered.length === 0 && (
-        <p className="py-16 text-center text-sm text-ink/50">
-          No homes match those filters.
-        </p>
+        <div className="py-16 text-center">
+          <p className="text-sm text-ink/50">No homes match those filters.</p>
+          <button
+            onClick={() => {
+              setDev("All developments");
+              setStatus("All statuses");
+            }}
+            className="mt-5 border border-ink/20 px-8 py-3 text-xs uppercase tracking-[0.18em] text-ink transition-colors hover:border-ink"
+          >
+            Clear filters
+          </button>
+        </div>
       )}
     </>
   );

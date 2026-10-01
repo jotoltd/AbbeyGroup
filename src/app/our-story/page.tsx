@@ -1,14 +1,15 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { Metadata } from "next";
 import Reveal from "@/components/Reveal";
 import { getContent } from "@/data/server";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Our Story",
   description:
     "Design-led construction in Norfolk. The Abbey Group combines over 50 years of design and building experience.",
-};
+  path: "/our-story",
+});
 
 const process = [
   {

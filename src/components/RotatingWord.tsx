@@ -10,26 +10,35 @@ export default function RotatingWord({
   className?: string;
 }) {
   const [i, setI] = useState(0);
-  const [fading, setFading] = useState(false);
+  const prev = (i - 1 + words.length) % words.length;
 
   useEffect(() => {
-    const t = setInterval(() => {
-      setFading(true);
-      setTimeout(() => {
-        setI((v) => (v + 1) % words.length);
-        setFading(false);
-      }, 350);
-    }, 3000);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const t = setInterval(() => setI((v) => (v + 1) % words.length), 3000);
     return () => clearInterval(t);
   }, [words.length]);
 
   return (
-    <em
-      className={`inline-block italic transition-all duration-300 ${
-        fading ? "-translate-y-2 opacity-0" : "translate-y-0 opacity-100"
-      } ${className}`}
-    >
-      {words[i]}
-    </em>
+    <>
+      <span className="sr-only">{words[0]}</span>
+      {/* All words share one grid cell so the heading never reflows as they
+          rotate — the em is always the width of the longest word. */}
+      <em aria-hidden="true" className={`inline-grid ${className}`}>
+        {words.map((word, idx) => (
+          <span
+            key={word}
+            className={`col-start-1 row-start-1 whitespace-nowrap transition-all duration-300 ease-out ${
+              idx === i
+                ? "translate-y-0 opacity-100"
+                : idx === prev
+                  ? "-translate-y-2 opacity-0"
+                  : "translate-y-2 opacity-0"
+            }`}
+          >
+            {word}
+          </span>
+        ))}
+      </em>
+    </>
   );
 }

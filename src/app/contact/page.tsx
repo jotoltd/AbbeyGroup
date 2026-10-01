@@ -1,12 +1,14 @@
 import Image from "next/image";
-import type { Metadata } from "next";
 import ContactForm from "@/components/ContactForm";
+import JsonLd from "@/components/JsonLd";
+import { SITE_NAME, absoluteUrl, pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Contact",
   description:
     "Get in touch with The Abbey Group to discuss our current Norfolk developments.",
-};
+  path: "/contact",
+});
 
 export default async function Contact({
   searchParams,
@@ -18,6 +20,14 @@ export default async function Contact({
       : "";
   return (
     <>
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "ContactPage",
+          name: `Contact | ${SITE_NAME}`,
+          url: absoluteUrl("/contact"),
+        }}
+      />
       <section className="mx-auto max-w-7xl px-6 pb-16 pt-40 lg:px-10 lg:pt-52">
         <p className="mb-6 text-xs uppercase tracking-[0.3em] text-rust">
           Contact us
